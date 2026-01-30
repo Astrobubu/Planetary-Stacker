@@ -1,37 +1,18 @@
 /// Planetary Stacker - Main Dart API
 ///
-/// High-performance planetary image stacking for mobile devices
+/// Process phone-through-telescope videos into sharp planetary images.
+/// Uses opencv_dart for image processing and ffmpeg_kit for video extraction.
 library planetary_stacker;
-
-import 'dart:ffi' as ffi;
-import 'dart:io';
-import 'package:ffi/ffi.dart';
 
 // Export the main classes
 export 'src/processing_params.dart';
 export 'src/frame_analysis.dart';
 export 'src/stacker.dart';
+export 'src/video/frame_extractor.dart' show FrameExtractor, VideoInfo;
+export 'src/sharpening/wavelet_sharpener.dart' show WaveletSharpener, WaveletDecomposition, WaveletPreset;
+export 'src/quality/quality_assessor.dart' show QualityAssessor;
+export 'src/alignment/phase_correlator.dart' show PhaseCorrelator, AlignmentResult;
+export 'src/stacking/sigma_clip_stacker.dart' show SigmaClipStacker;
 
-/// Get the library version
-String getVersion() {
-  // TODO: Call native function once FFI bindings are generated
-  return '0.1.0';
-}
-
-/// Load the native library
-ffi.DynamicLibrary _loadLibrary() {
-  if (Platform.isAndroid) {
-    return ffi.DynamicLibrary.open('libplanetary_stacker.so');
-  } else if (Platform.isIOS || Platform.isMacOS) {
-    return ffi.DynamicLibrary.open('planetary_stacker.framework/planetary_stacker');
-  } else if (Platform.isLinux) {
-    return ffi.DynamicLibrary.open('libplanetary_stacker.so');
-  } else if (Platform.isWindows) {
-    return ffi.DynamicLibrary.open('planetary_stacker.dll');
-  } else {
-    throw UnsupportedError('Platform not supported: ${Platform.operatingSystem}');
-  }
-}
-
-/// Global reference to the native library
-final ffi.DynamicLibrary nativeLib = _loadLibrary();
+/// Library version
+const String version = '0.2.0';

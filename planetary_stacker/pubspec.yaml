@@ -1,6 +1,6 @@
 name: planetary_stacker
-description: High-performance planetary image stacking for mobile devices
-version: 0.1.0
+description: Planetary image stacking for mobile devices - process phone-through-telescope videos
+version: 0.2.0
 homepage: https://github.com/yourusername/planetary-stacker
 
 environment:
@@ -10,37 +10,28 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ffi: ^2.1.0
-  plugin_platform_interface: ^2.1.0
+
+  # Image processing - OpenCV bindings for Dart
+  opencv_dart: ^1.3.0
+
+  # Video frame extraction (community-maintained fork)
+  ffmpeg_kit_flutter_new: ^4.1.0
+
+  # File operations
+  path_provider: ^2.1.0
+  path: ^1.9.0
+
+  # Image encoding/decoding
+  image: ^4.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
-  ffigen: ^9.0.0
+  flutter_lints: ^3.0.0
 
 flutter:
   plugin:
     platforms:
       android:
-        ffiPlugin: true
-      ios:
-        ffiPlugin: true
-      linux:
-        ffiPlugin: true
-      macos:
-        ffiPlugin: true
-      windows:
-        ffiPlugin: true
-
-ffigen:
-  name: 'PlanetaryStackerBindings'
-  description: 'FFI bindings for planetary_stacker native library'
-  output: 'lib/planetary_stacker_bindings_generated.dart'
-  headers:
-    entry-points:
-      - 'src/planetary_stacker.h'
-  preamble: |
-    // ignore_for_file: always_specify_types
-    // ignore_for_file: camel_case_types
-    // ignore_for_file: non_constant_identifier_names
+        package: com.planetary.planetary_stacker
+        pluginClass: PlanetaryStackerPlugin
