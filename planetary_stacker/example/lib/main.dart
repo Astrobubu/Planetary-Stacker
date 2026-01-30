@@ -76,15 +76,58 @@ class _StackerAppState extends State<StackerApp> {
 
   Future<void> _requestPermissions() async {
     // Request all needed permissions upfront
-    final statuses = await [
-      Permission.storage,
-      Permission.photos,
-      Permission.videos,
-    ].request();
+    // Android 13+ uses granular media permissions
+    // Older Android uses storage permission
+
+    Map<Permission, PermissionStatus> statuses = {};
+
+    // Try Android 13+ permissions first
+    if (await Permission.photos.status.isDenied) {
+      statuses.addAll(await [
+        Permission.photos,
+        Permission.videos,
+      ].request());
+    }
+
+    // Also request storage for older Android versions
+    if (await Permission.storage.status.isDenied) {
+      final storageStatus = await Permission.storage.request();
+      statuses[Permission.storage] = storageStatus;
+    }
+
+    // Check if we have at least one permission
+    final hasPermission = statuses.values.any((s) => s.isGranted) ||
+        await Permission.photos.isGranted ||
+        await Permission.videos.isGranted ||
+        await Permission.storage.isGranted;
 
     setState(() {
-      _permissionsGranted = statuses.values.any((s) => s.isGranted);
+      _permissionsGranted = hasPermission;
     });
+
+    // If still denied, open app settings
+    if (!hasPermission) {
+      final shouldOpen = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Permissions Required'),
+          content: const Text('This app needs access to your videos and photos to process planetary images. Please grant permissions in Settings.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
+      if (shouldOpen == true) {
+        await openAppSettings();
+      }
+    }
   }
 
   // Step 1: Video
