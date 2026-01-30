@@ -67,6 +67,7 @@ class StackerApp extends StatefulWidget {
 class _StackerAppState extends State<StackerApp> {
   int _currentStep = 0;
   bool _permissionsGranted = false;
+  String _debugLog = '';
 
   @override
   void initState() {
@@ -313,13 +314,58 @@ class _StackerAppState extends State<StackerApp> {
               style: TextStyle(color: Colors.grey[400], fontSize: 14)),
           const SizedBox(height: 20),
 
-          if (_videoPath == null)
+          if (_videoPath == null) ...[
             _buildPrimaryButton(
               icon: Icons.video_library,
               label: 'Select Video File',
               onPressed: _pickVideo,
-            )
-          else ...[
+            ),
+            // Debug log display
+            if (_debugLog.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.bug_report, color: Colors.orange, size: 16),
+                        const SizedBox(width: 8),
+                        const Text('Debug Log', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 16, color: Colors.grey),
+                          onPressed: () {
+                            // Copy to clipboard - user can paste elsewhere
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Log shown below')),
+                            );
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _debugLog,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 10,
+                        color: Colors.greenAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ] else ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1345,17 +1391,128 @@ class _StackerAppState extends State<StackerApp> {
     }
   }
 
+  void _log(String msg) {
+    debugPrint(msg);
+    setState(() {
+      _debugLog += '$msg\n';
+      // Keep last 20 lines
+      final lines = _debugLog.split('\n');
+      if (lines.length > 20) {
+        _debugLog = lines.skip(lines.length - 20).join('\n');
+      }
+    });
+  }
+
   Future<void> _pickVideo() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.video, allowMultiple: false);
-    if (result != null && result.files.isNotEmpty) {
+    setState(() => _debugLog = ''); // Clear log
+
+    try {
+      _log('=== PICK VIDEO START ===');
+      _log('Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}');
+      _log('Checking permissions...');
+
+      // Check current permission status
+      PermissionStatus? storageStatus;
+      PermissionStatus? videosStatus;
+      PermissionStatus? photosStatus;
+      PermissionStatus? manageStorageStatus;
+
+      try {
+        storageStatus = await Permission.storage.status;
+        _log('Storage: $storageStatus');
+      } catch (e) {
+        _log('Storage check error: $e');
+      }
+
+      try {
+        videosStatus = await Permission.videos.status;
+        _log('Videos: $videosStatus');
+      } catch (e) {
+        _log('Videos check error: $e');
+      }
+
+      try {
+        photosStatus = await Permission.photos.status;
+        _log('Photos: $photosStatus');
+      } catch (e) {
+        _log('Photos check error: $e');
+      }
+
+      try {
+        manageStorageStatus = await Permission.manageExternalStorage.status;
+        _log('ManageStorage: $manageStorageStatus');
+      } catch (e) {
+        _log('ManageStorage check error: $e');
+      }
+
+      _log('Calling FilePicker...');
+
+      FilePickerResult? result;
+      try {
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.video,
+          allowMultiple: false,
+        );
+        _log('FilePicker returned successfully');
+      } catch (pickerError, pickerStack) {
+        _log('FilePicker ERROR: $pickerError');
+        _log('Stack: ${pickerStack.toString().split('\n').take(3).join(' | ')}');
+        _showError('FilePicker error: $pickerError');
+        return;
+      }
+
+      _log('Result: ${result == null ? "NULL" : "has data"}');
+
+      if (result == null) {
+        _log('Result is NULL - cancelled or error');
+        _showError('No video selected');
+        return;
+      }
+
+      if (result.files.isEmpty) {
+        _log('Result files is EMPTY');
+        _showError('No files in result');
+        return;
+      }
+
+      final file = result.files.first;
+      _log('File: ${file.name}');
+      _log('Path: ${file.path}');
+      _log('Size: ${file.size}');
+
+      if (file.path == null) {
+        _log('ERROR: Path is NULL!');
+        _showError('Could not get file path');
+        return;
+      }
+
+      // Check if file exists
+      final fileExists = await File(file.path!).exists();
+      _log('File exists: $fileExists');
+
+      if (!fileExists) {
+        _log('ERROR: File not found!');
+        _showError('File not found at path');
+        return;
+      }
+
       setState(() {
-        _videoPath = result.files.first.path!;
-        _videoName = result.files.first.name;
+        _videoPath = file.path!;
+        _videoName = file.name;
         _analysisResult = null;
         _stackedImagePath = null;
         _finalImagePath = null;
+        _debugLog = ''; // Clear log on success
       });
+
+      _showSuccess('Video: ${file.name}');
       _loadVideoInfo();
+
+    } catch (e, stackTrace) {
+      _log('=== ERROR ===');
+      _log('$e');
+      _log('${stackTrace.toString().split('\n').take(5).join('\n')}');
+      _showError('Error: $e');
     }
   }
 
