@@ -66,6 +66,26 @@ class StackerApp extends StatefulWidget {
 
 class _StackerAppState extends State<StackerApp> {
   int _currentStep = 0;
+  bool _permissionsGranted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    // Request all needed permissions upfront
+    final statuses = await [
+      Permission.storage,
+      Permission.photos,
+      Permission.videos,
+    ].request();
+
+    setState(() {
+      _permissionsGranted = statuses.values.any((s) => s.isGranted);
+    });
+  }
 
   // Step 1: Video
   String? _videoPath;
