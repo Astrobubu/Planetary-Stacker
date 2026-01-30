@@ -72,76 +72,7 @@ class _StackerAppState extends State<StackerApp> {
   @override
   void initState() {
     super.initState();
-    _requestPermissions();
-  }
-
-  Future<void> _requestPermissions() async {
-    // Request media permissions on startup
-    // This ensures the file picker can access videos
-
-    bool hasPermission = false;
-
-    // Request all relevant permissions at once
-    final permissions = <Permission>[
-      Permission.videos,
-      Permission.photos,
-      Permission.storage,
-      Permission.manageExternalStorage,
-    ];
-
-    // Request permissions
-    final statuses = await permissions.request();
-
-    // Check if any permission was granted
-    hasPermission = statuses.values.any((status) =>
-        status.isGranted || status.isLimited);
-
-    // Double-check by querying status directly
-    if (!hasPermission) {
-      hasPermission = await Permission.videos.isGranted ||
-          await Permission.photos.isGranted ||
-          await Permission.storage.isGranted ||
-          await Permission.videos.isLimited ||
-          await Permission.photos.isLimited;
-    }
-
-    setState(() {
-      _permissionsGranted = hasPermission;
-    });
-
-    // If permissions denied, show dialog
-    if (!hasPermission && mounted) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
-
-      final shouldOpen = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF18181B),
-          title: const Text('Permissions Required'),
-          content: const Text(
-            'Planetary Stacker needs access to your videos to process planetary images.\n\n'
-            'Please tap "Open Settings" and grant:\n'
-            '• Photos and videos access',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Open Settings'),
-            ),
-          ],
-        ),
-      );
-
-      if (shouldOpen == true) {
-        await openAppSettings();
-      }
-    }
+    // FilePicker handles permissions internally when picking files
   }
 
   // Step 1: Video
@@ -1407,61 +1338,15 @@ class _StackerAppState extends State<StackerApp> {
     setState(() => _debugLog = ''); // Clear log
 
     try {
-      _log('=== PICK VIDEO START ===');
-      _log('Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}');
-      _log('Checking permissions...');
+      _log('Picking video...');
 
-      // Check current permission status
-      PermissionStatus? storageStatus;
-      PermissionStatus? videosStatus;
-      PermissionStatus? photosStatus;
-      PermissionStatus? manageStorageStatus;
+      // FilePicker handles permissions internally - just call it directly
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
 
-      try {
-        storageStatus = await Permission.storage.status;
-        _log('Storage: $storageStatus');
-      } catch (e) {
-        _log('Storage check error: $e');
-      }
-
-      try {
-        videosStatus = await Permission.videos.status;
-        _log('Videos: $videosStatus');
-      } catch (e) {
-        _log('Videos check error: $e');
-      }
-
-      try {
-        photosStatus = await Permission.photos.status;
-        _log('Photos: $photosStatus');
-      } catch (e) {
-        _log('Photos check error: $e');
-      }
-
-      try {
-        manageStorageStatus = await Permission.manageExternalStorage.status;
-        _log('ManageStorage: $manageStorageStatus');
-      } catch (e) {
-        _log('ManageStorage check error: $e');
-      }
-
-      _log('Calling FilePicker...');
-
-      FilePickerResult? result;
-      try {
-        result = await FilePicker.platform.pickFiles(
-          type: FileType.video,
-          allowMultiple: false,
-        );
-        _log('FilePicker returned successfully');
-      } catch (pickerError, pickerStack) {
-        _log('FilePicker ERROR: $pickerError');
-        _log('Stack: ${pickerStack.toString().split('\n').take(3).join(' | ')}');
-        _showError('FilePicker error: $pickerError');
-        return;
-      }
-
-      _log('Result: ${result == null ? "NULL" : "has data"}');
+      _log('Result: ${result == null ? "cancelled" : "got file"}');
 
       if (result == null) {
         _log('Result is NULL - cancelled or error');
